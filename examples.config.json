@@ -1,0 +1,29 @@
+{
+  "zoom": {
+    "sdkKey": "",
+    "sdkSecret": "",
+    "pmi": "",
+    "passcode": "",
+    "displayName": ""
+  },
+  "screen": {
+    "monitorIndex": 0,
+    "shareComputerSound": true,
+    "stereoAudio": true,
+    "optimizeForVideo": false
+  },
+  "remoteControl": {
+    "autoAccept": true,
+    "enableClipboard": true
+  },
+  "recovery": {
+    "maxRetries": 10,
+    "initialBackoffMs": 1000,
+    "maxBackoffMs": 30000
+  },
+  "kiosk": {
+    "autoStartOnBoot": true,
+    "showTrayIcon": true,
+    "minimizeToTray": true
+  }
+}

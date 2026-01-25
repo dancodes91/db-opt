@@ -1,0 +1,41 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+build/
+out/
+
+# Native addon build
+build/Release/
+build/Debug/
+*.node
+
+# SDK files (download separately)
+sdk/zoom-sdk-electron-6.7.2.72402/sdk/win64/*.lib
+sdk/zoom-sdk-electron-6.7.2.72402/sdk/win64/*.exe
+
+# Logs
+*.log
+npm-debug.log*
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+release/
+
+config.json
+
+# Action recording data
+user-prefs.json
+
+# Temporary files
+*.tmp
+*.temp
