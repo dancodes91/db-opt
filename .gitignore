@@ -13,7 +13,6 @@ build/Debug/
 
 # SDK files (download separately)
 sdk/zoom-sdk-electron-6.7.2.72402/sdk/win64/*.lib
-sdk/zoom-sdk-electron-6.7.2.72402/sdk/win64/*.exe
 
 # Logs
 *.log
