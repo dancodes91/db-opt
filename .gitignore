@@ -12,7 +12,11 @@ build/Debug/
 *.node
 
 # SDK files (download separately)
-sdk/zoom-sdk-electron-6.7.2.72402/sdk/win64/*.lib
+sdk/h/*.h
+sdk/bin/*.dll
+sdk/bin/*.lib
+sdk/bin/*.exe
+src/__pycache__
 
 # Logs
 *.log
@@ -28,12 +32,14 @@ npm-debug.log*
 .DS_Store
 Thumbs.db
 
+# Electron builder output
 release/
 
+# Sensitive configuration (copy examples.config.json to config.json)
 config.json
 
 # Action recording data
-user-prefs.json
+remote-control-setup.json
 
 # Temporary files
 *.tmp

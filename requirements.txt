@@ -1,0 +1,5 @@
+pybind11>=2.11.0
+pyautogui>=0.9.54
+pynput>=1.7.6
+PyJWT>=2.8.0
+cryptography>=41.0.0
