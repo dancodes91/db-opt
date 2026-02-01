@@ -47,8 +47,8 @@ class ActionPlayer:
         dest_y: float,
         G_0: float = 9.0,
         W_0: float = 5.0,
-        M_0: float = 15.0,
-        D_0: float = 12.0
+        M_0: float = 9.0,
+        D_0: float = 9.0
     ) -> None:
         """
         WindMouse algorithm for natural mouse movement
