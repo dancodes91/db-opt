@@ -78,6 +78,7 @@ class ZoomService:
         self.is_in_meeting = False
         self.is_sharing = False
         self.current_status = 'Not initialized'
+        # Mock mode: no real Zoom connection; simulates join/meeting for testing when SDK/auth unavailable
         self.use_mock_mode = False
 
         # SDK instances
@@ -108,6 +109,9 @@ class ZoomService:
 
         # Timeout tracking
         self.auth_timeout_task: Optional[asyncio.Task] = None
+        # Auth retry (rejoin real meeting instead of mock)
+        self.auth_retry_count: int = 0
+        self.max_auth_retries: int = 5
 
     def on(self, event: str, callback: Callable) -> None:
         """Register event callback"""
@@ -137,7 +141,7 @@ class ZoomService:
                     print(f'[ZoomService] Error in callback for {event}: {e}')
 
     async def initialize(self, force_reload: bool = False) -> None:
-        """Initialize SDK"""
+        """Initialize SDK. If force_reload and SDK was already in use, clean up and re-init for real-meeting retry."""
         if sdk is None:
             print('[ZoomService] SDK not available, using mock mode')
             self.use_mock_mode = True
@@ -145,6 +149,29 @@ class ZoomService:
             return
 
         try:
+            # Retry path: clean up and re-init so we can rejoin the real meeting
+            if force_reload and (self.auth_service or self.meeting_service):
+                if self.auth_timeout_task and not self.auth_timeout_task.done():
+                    self.auth_timeout_task.cancel()
+                    self.auth_timeout_task = None
+                print('[ZoomService] Cleaning up SDK for retry...')
+                sdk.CleanUPSDK()
+                self.auth_service = None
+                self.meeting_service = None
+                self.participants_ctrl = None
+                self.share_ctrl = None
+                self.meeting_config = None
+                self.auth_event_callbacks = None
+                self.meeting_event_callbacks = None
+                self.participants_event_callbacks = None
+                self.sharing_event_callbacks = None
+                self.is_initialized = False
+                self.is_authenticated = False
+                self.is_in_meeting = False
+                self.is_sharing = False
+                await asyncio.sleep(1.0)
+                print('[ZoomService] Retrying SDK init and auth...')
+
             # Initialize SDK
             init_param = sdk.InitParam()
             init_param.strWebDomain = 'https://www.zoom.us'
@@ -205,11 +232,24 @@ class ZoomService:
             await self._initialize_mock()
 
     async def _auth_timeout_handler(self) -> None:
-        """Handle auth callback timeout"""
+        """Handle auth callback timeout; retry real-meeting join instead of mock."""
         await asyncio.sleep(10.0)  # Wait 10 seconds
         if not self.is_authenticated:
+            self.auth_timeout_task = None
             print('[ZoomService] Auth callback timeout - auth callback did not fire within 10 seconds')
             self.emit('error', 'Authentication timeout - SDK may not be ready for reconnection')
+            self.auth_retry_count += 1
+            if self.auth_retry_count <= self.max_auth_retries:
+                delay = 5
+                print(f'[ZoomService] Will retry real-meeting join in {delay}s (attempt {self.auth_retry_count}/{self.max_auth_retries})')
+                await self._retry_initialize_after_delay(delay)
+            else:
+                print(f'[ZoomService] Max auth retries ({self.max_auth_retries}) reached. Check config and SDK.')
+
+    async def _retry_initialize_after_delay(self, seconds: float) -> None:
+        """Wait then re-initialize SDK and auth so the app retries joining the real meeting."""
+        await asyncio.sleep(seconds)
+        await self.initialize(force_reload=True)
 
     def _on_auth_result(self, result: int) -> None:
         """Handle authentication result"""
@@ -279,10 +319,22 @@ class ZoomService:
                 self.sharing_event_callbacks.onSharingStatusChangedCallback = lambda share_info: self._on_sharing_status_changed(share_info)
                 self.share_ctrl.SetEvent(self.sharing_event_callbacks)
 
+            self.auth_retry_count = 0  # reset on success
             self.emit('initialized')
         else:
             self.current_status = f'Authentication failed: {result}'
             self.emit('error', f'Authentication failed with code: {result}')
+            self.auth_retry_count += 1
+            if self.auth_retry_count <= self.max_auth_retries:
+                delay = 5
+                print(f'[ZoomService] Will retry real-meeting join in {delay}s (attempt {self.auth_retry_count}/{self.max_auth_retries})')
+                try:
+                    loop = asyncio.get_event_loop()
+                    asyncio.run_coroutine_threadsafe(self._retry_initialize_after_delay(delay), loop)
+                except Exception as e:
+                    print(f'[ZoomService] Could not schedule retry: {e}')
+            else:
+                print(f'[ZoomService] Max auth retries ({self.max_auth_retries}) reached. Check config and SDK.')
 
     def _on_identity_expired(self) -> None:
         """Handle identity expired"""

@@ -8,28 +8,11 @@ import random
 import time
 from typing import List, Dict, Optional, Literal
 import pyautogui
-import ctypes
-from ctypes import wintypes
 
 # Disable pyautogui failsafe
 pyautogui.FAILSAFE = False
 
 MouseAction = Dict[str, any]  # type: ignore
-
-
-def get_screen_waypoints() -> Dict[str, Dict[str, int]]:
-    """Get screen waypoints: center and topCenter (25px below top, 100px left of center)"""
-    try:
-        # Use Windows API to get screen dimensions
-        user32 = ctypes.windll.user32
-        width = user32.GetSystemMetrics(0)  # SM_CXSCREEN
-        height = user32.GetSystemMetrics(1)  # SM_CYSCREEN
-
-        center = {'x': width // 2, 'y': height // 2}
-        top_center = {'x': width // 2 - 100, 'y': 25}
-        return {'center': center, 'topCenter': top_center}
-    except Exception:
-        return {'center': {'x': 960, 'y': 540}, 'topCenter': {'x': 860, 'y': 25}}
 
 
 class ActionPlayer:
@@ -45,10 +28,10 @@ class ActionPlayer:
         start_y: float,
         dest_x: float,
         dest_y: float,
-        G_0: float = 9.0,
+        G_0: float = 12.0,
         W_0: float = 5.0,
-        M_0: float = 9.0,
-        D_0: float = 9.0
+        M_0: float = 25.0,
+        D_0: float = 12.0
     ) -> None:
         """
         WindMouse algorithm for natural mouse movement
@@ -106,11 +89,11 @@ class ActionPlayer:
                 current_x = move_x
                 current_y = move_y
 
-                # Variable delay based on velocity
-                base_delay = 1.5
+                # Variable delay based on velocity (lower = faster cursor)
+                base_delay = 0.4
                 velocity_factor = min(1.0, v_mag / M_0_current)
-                delay = base_delay * (1.0 - velocity_factor * 0.3) + random.random() * 0.2
-                await asyncio.sleep(max(0.0005, delay / 1000.0))
+                delay = base_delay * (1.0 - velocity_factor * 0.3) + random.random() * 0.1
+                await asyncio.sleep(max(0.0002, delay / 1000.0))
 
         # Ensure final position is exact
         pyautogui.moveTo(int(dest_x), int(dest_y))
@@ -152,30 +135,10 @@ class ActionPlayer:
                 if not self.is_playing:
                     break
 
-                waypoints = get_screen_waypoints()
-                center = waypoints['center']
-                top_center = waypoints['topCenter']
+                # Move directly to the recorded click position (no center/top waypoints)
                 current_pos = pyautogui.position()
-                x = current_pos.x
-                y = current_pos.y
-
-                # Waypoints before each click: current -> center -> topCenter -> target
-                if x != center['x'] or y != center['y']:
-                    await self.wind_mouse(x, y, center['x'], center['y'])
-                    if not self.is_playing:
-                        break
-                    x = center['x']
-                    y = center['y']
-
-                if x != top_center['x'] or y != top_center['y']:
-                    await self.wind_mouse(x, y, top_center['x'], top_center['y'])
-                    if not self.is_playing:
-                        break
-                    x = top_center['x']
-                    y = top_center['y']
-
-                if x != action['x'] or y != action['y']:
-                    await self.wind_mouse(x, y, action['x'], action['y'])
+                if current_pos.x != action['x'] or current_pos.y != action['y']:
+                    await self.wind_mouse(current_pos.x, current_pos.y, action['x'], action['y'])
                 if not self.is_playing:
                     break
 
