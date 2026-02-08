@@ -37,7 +37,6 @@ class RecoveryConfig(TypedDict):
 
 
 class KioskModeConfig(TypedDict):
-    autoStartOnBoot: bool
     showTrayIcon: bool
     minimizeToTray: bool
 
@@ -75,7 +74,6 @@ default_config: KioskConfig = {
         "maxBackoffMs": 30000
     },
     "kiosk": {
-        "autoStartOnBoot": True,
         "showTrayIcon": True,
         "minimizeToTray": True
     }

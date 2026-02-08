@@ -1,0 +1,28 @@
+{
+  "zoom": {
+    "sdkKey": "Client ID",
+    "sdkSecret": "Client Secret",
+    "pmi": "PMI",
+    "passcode": "Pass Code",
+    "displayName": "Display Name"
+  },
+  "screen": {
+    "monitorIndex": 0,
+    "shareComputerSound": true,
+    "stereoAudio": true,
+    "optimizeForVideo": false
+  },
+  "remoteControl": {
+    "autoAccept": true,
+    "enableClipboard": true
+  },
+  "recovery": {
+    "maxRetries": 10,
+    "initialBackoffMs": 1000,
+    "maxBackoffMs": 30000
+  },
+  "kiosk": {
+    "showTrayIcon": true,
+    "minimizeToTray": true
+  }
+}
