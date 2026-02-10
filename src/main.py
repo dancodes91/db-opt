@@ -189,6 +189,8 @@ def on_disconnected(reason: str) -> None:
     """Handle disconnected event"""
     global other_participant_poll_task
 
+    print(f'[Diagnostic] on_disconnected called: reason={reason}')
+
     if other_participant_poll_task:
         other_participant_poll_task.cancel()
         other_participant_poll_task = None
@@ -234,9 +236,31 @@ def setup_keyboard_shortcuts() -> None:
     print('[Keyboard] Shortcuts registered (F9/F10)')
 
 
+def _log_exception(exc_type, exc_val, exc_tb):
+    """Log unhandled exceptions for diagnostics"""
+    if exc_type is not None:
+        print(f'[Diagnostic] Unhandled exception: {exc_type.__name__}: {exc_val}')
+        import traceback
+        traceback.print_exception(exc_type, exc_val, exc_tb)
+
+
 async def main() -> None:
     """Main entry point"""
     global config, recovery_watchdog, action_recorder, action_player
+
+    # Install exception hook for diagnostics (catches main-thread exceptions)
+    sys.excepthook = _log_exception
+
+    # Log asyncio task exceptions (e.g. from callbacks that use create_task)
+    def _task_exception_handler(loop, context):
+        exc = context.get('exception')
+        if exc:
+            print(f'[Diagnostic] Async task exception: {type(exc).__name__}: {exc}')
+            import traceback
+            traceback.print_exception(type(exc), exc, exc.__traceback__)
+        else:
+            print(f'[Diagnostic] Async context: {context}')
+    asyncio.get_running_loop().set_exception_handler(_task_exception_handler)
 
     print('Zoom Kiosk - Python Edition')
     print('=' * 40)
@@ -276,8 +300,16 @@ async def main() -> None:
         while True:
             await asyncio.sleep(1)
     except KeyboardInterrupt:
-        print('\n[Shutdown] Interrupted by user')
+        print('\n[Shutdown] Interrupted by user (Ctrl+C)')
+    except SystemExit as e:
+        print(f'\n[Diagnostic] SystemExit in main loop: code={e.code}')
+        print('[Diagnostic] May indicate external process termination (e.g. SentinelOne, script)')
+    except Exception as e:
+        print(f'\n[Diagnostic] Exception in main loop: {type(e).__name__}: {e}')
+        import traceback
+        traceback.print_exc()
     finally:
+        print('[Diagnostic] Entering cleanup (finally block)')
         await cleanup()
 
 

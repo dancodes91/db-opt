@@ -343,68 +343,82 @@ class ZoomService:
 
     def _on_meeting_status_changed(self, status: int, result: int) -> None:
         """Handle meeting status changes"""
-        print(f'[ZoomService] Meeting status: {status}, result: {result}')
+        try:
+            print(f'[ZoomService] Meeting status: {status}, result: {result}')
+            if status == sdk.MeetingStatus.MEETING_STATUS_CONNECTING:
+                print('[Diagnostic] Status CONNECTING - waiting for INMEETING or next status')
 
-        if status == sdk.MeetingStatus.MEETING_STATUS_INMEETING:
-            self.is_in_meeting = True
-            self.current_status = 'In meeting'
+            if status == sdk.MeetingStatus.MEETING_STATUS_INMEETING:
+                self.is_in_meeting = True
+                self.current_status = 'In meeting'
 
-            # Ensure meeting window/dialog is disabled/hidden after joining
-            if self.meeting_config:
-                try:
-                    # Call again to ensure it's still disabled
-                    self.meeting_config.DisableShowJoinMeetingWnd(True)
-                    self.meeting_config.DisableWaitingForHostDialog(True)
-                    self.meeting_config.DisablePopupMeetingWrongPSWDlg(True)
-                    print('[ZoomService] Meeting window/dialog disabled after joining')
-                except Exception as e:
-                    print(f'[ZoomService] Warning: Could not disable meeting window: {e}')
+                # Ensure meeting window/dialog is disabled/hidden after joining
+                if self.meeting_config:
+                    try:
+                        # Call again to ensure it's still disabled
+                        self.meeting_config.DisableShowJoinMeetingWnd(True)
+                        self.meeting_config.DisableWaitingForHostDialog(True)
+                        self.meeting_config.DisablePopupMeetingWrongPSWDlg(True)
+                        print('[ZoomService] Meeting window/dialog disabled after joining')
+                    except Exception as e:
+                        print(f'[ZoomService] Warning: Could not disable meeting window: {e}')
 
-            # Hide Zoom meeting window using SDK API (more precise)
-            self._hide_zoom_meeting_window()
-            # Also hide window after a delay in case it appears later
-            asyncio.create_task(self._hide_zoom_meeting_window_delayed())
+                # Hide Zoom meeting window using SDK API (more precise)
+                self._hide_zoom_meeting_window()
+                # Also hide window after a delay in case it appears later
+                asyncio.create_task(self._hide_zoom_meeting_window_delayed())
 
-            self.emit('meetingJoined')
+                self.emit('meetingJoined')
 
-            # Check for other participants
-            other_count = self.get_other_participant_count()
-            if other_count > 0:
-                print(f'[ZoomService] Other participants already in meeting (count={other_count}), starting screen share...')
-                self.emit('otherParticipantPresent')
-                asyncio.create_task(self._start_screen_share_delayed())
+                # Check for other participants
+                other_count = self.get_other_participant_count()
+                if other_count > 0:
+                    print(f'[ZoomService] Other participants already in meeting (count={other_count}), starting screen share...')
+                    self.emit('otherParticipantPresent')
+                    asyncio.create_task(self._start_screen_share_delayed())
 
-        elif status == sdk.MeetingStatus.MEETING_STATUS_DISCONNECTING:
-            self.current_status = 'Disconnecting...'
-            if self.is_in_meeting:
-                self.is_in_meeting = False
-                self.is_sharing = False
+            elif status == sdk.MeetingStatus.MEETING_STATUS_DISCONNECTING:
+                self.current_status = 'Disconnecting...'
+                if self.is_in_meeting:
+                    self.is_in_meeting = False
+                    self.is_sharing = False
 
-        elif status == sdk.MeetingStatus.MEETING_STATUS_ENDED or status == sdk.MeetingStatus.MEETING_STATUS_FAILED:
-            if self.is_in_meeting:
-                self.is_in_meeting = False
-                self.is_sharing = False
-            self.current_status = 'Disconnected'
-            status_name = 'ended' if status == sdk.MeetingStatus.MEETING_STATUS_ENDED else 'failed'
-            print(f'[ZoomService] Meeting {status_name} - emitting disconnected event')
-            self.emit('disconnected', f'Meeting {status_name}')
+            elif status == sdk.MeetingStatus.MEETING_STATUS_ENDED or status == sdk.MeetingStatus.MEETING_STATUS_FAILED:
+                if self.is_in_meeting:
+                    self.is_in_meeting = False
+                    self.is_sharing = False
+                self.current_status = 'Disconnected'
+                status_name = 'ended' if status == sdk.MeetingStatus.MEETING_STATUS_ENDED else 'failed'
+                print(f'[ZoomService] Meeting {status_name} - emitting disconnected event')
+                self.emit('disconnected', f'Meeting {status_name}')
+        except Exception as e:
+            print(f'[Diagnostic] Exception in meeting status callback: {type(e).__name__}: {e}')
+            import traceback
+            traceback.print_exc()
+            raise
 
     def _on_user_join(self, lst_user_id: Any, str_user_list: Optional[str] = None) -> None:
         """Handle user join callback"""
-        ids = self._to_participant_ids(lst_user_id)
-        print(f'[ZoomService] meetinguserjoincb lstUserID={lst_user_id}, parsed ids={ids}')
+        try:
+            ids = self._to_participant_ids(lst_user_id)
+            print(f'[ZoomService] meetinguserjoincb lstUserID={lst_user_id}, parsed ids={ids}')
 
-        if self.is_in_meeting and ids:
-            others = [id for id in ids if self._is_other_participant(id)]
-            print(f'[ZoomService] meetinguserjoincb othersByIsMySelf(count)={len(others)}, ids={others}')
+            if self.is_in_meeting and ids:
+                others = [id for id in ids if self._is_other_participant(id)]
+                print(f'[ZoomService] meetinguserjoincb othersByIsMySelf(count)={len(others)}, ids={others}')
 
-            # If we have any IDs and at least one is identified as other participant, start sharing
-            # Also start sharing if we can't determine (safer - assume someone joined)
-            if others or (ids and len(ids) > 0):
-                self.emit('otherParticipantPresent')
-                if not self.is_sharing:
-                    print('[ZoomService] Participant detected, starting screen share...')
-                    asyncio.create_task(self.start_screen_share())
+                # If we have any IDs and at least one is identified as other participant, start sharing
+                # Also start sharing if we can't determine (safer - assume someone joined)
+                if others or (ids and len(ids) > 0):
+                    self.emit('otherParticipantPresent')
+                    if not self.is_sharing:
+                        print('[ZoomService] Participant detected, starting screen share...')
+                        asyncio.create_task(self.start_screen_share())
+        except Exception as e:
+            print(f'[Diagnostic] Exception in user join callback: {type(e).__name__}: {e}')
+            import traceback
+            traceback.print_exc()
+            raise
 
     def _on_user_left(self, lst_user_id: Any, str_user_list: Optional[str] = None) -> None:
         """Handle user left callback"""
